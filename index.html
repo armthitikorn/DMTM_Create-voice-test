@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>แดชบอร์ดเทรนเนอร์ - คำถามเสียง</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#f1f4f6;--card:#fff;--ink:#14232b;--mute:#5d6f78;--line:#d3dce1;--acc:#0e7c86;--rec:#d64545;--ok:#1f8a4c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 'IBM Plex Sans Thai',system-ui,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:16px}
+h1{font-size:1.3rem;margin:0}
+button,select,textarea,input{font:inherit;color:inherit}
+button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+button.rec{background:var(--rec);border-color:var(--rec);color:#fff}
+button.del{color:var(--rec)}
+button.delfill{background:var(--rec);border-color:var(--rec);color:#fff}
+button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid #7cc4cb;outline-offset:1px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:12px}
+.bar .grp{display:flex;gap:8px;flex-wrap:wrap}
+select,input[type=email],input[type=password],input[type=search]{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff}
+.tabs{display:flex;gap:6px;margin-bottom:12px;border-bottom:2px solid var(--line)}
+.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:10px 14px;font-weight:600;color:var(--mute);margin-bottom:-2px}
+.tabs button.on{color:var(--acc);border-bottom-color:var(--acc)}
+.prod{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.prod select{flex:1;min-width:160px;font-weight:600}
+.q{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+.q.off{opacity:.65}
+.qh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-weight:600}
+.qh .mv button{padding:4px 9px}
+textarea{width:100%;min-height:76px;border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical}
+audio{width:100%;margin:10px 0 6px}
+.none{color:var(--mute);font-size:.9rem;margin:10px 0 6px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.row .sp{flex:1}
+.chk{display:flex;gap:6px;align-items:center;font-size:.92rem;color:var(--mute)}
+.login{max-width:360px;margin:12vh auto;background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:10px}
+.login input{width:100%}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;display:none;max-width:90%;z-index:9}
+#toast.err{background:var(--rec)}
+.empty{text-align:center;color:var(--mute);padding:30px 0}
+.hide{display:none}
+.emp{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.emp .nm{flex:1;font-weight:500;overflow-wrap:anywhere}
+.emp .cd{color:var(--mute);font-size:.88rem}
+.emp input[type=checkbox],.selall input{width:20px;height:20px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.tools input[type=search]{flex:1;min-width:160px}
+.selall{display:flex;gap:6px;align-items:center;color:var(--mute);font-size:.92rem}
+.cnt{color:var(--mute);font-size:.9rem;margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<div id="loginView" class="login">
+  <h1>เข้าสู่ระบบเทรนเนอร์</h1>
+  <input id="em" type="email" placeholder="อีเมล" autocomplete="username">
+  <input id="pw" type="password" placeholder="รหัสผ่าน" autocomplete="current-password">
+  <button class="pri" id="loginBtn">เข้าสู่ระบบ</button>
+</div>
+
+<div id="appView" class="wrap hide">
+  <div class="bar">
+    <h1>แดชบอร์ดเทรนเนอร์</h1>
+    <div class="grp">
+      <select id="teamSel" aria-label="เลือกทีม">
+        <option value="tele">ทีมเทเล</option>
+        <option value="agent">ทีมเอเจน</option>
+      </select>
+      <button id="outBtn">ออกจากระบบ</button>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button data-tab="quiz" class="on" role="tab">แบบทดสอบเสียง</button>
+    <button data-tab="emp" role="tab">พนักงาน</button>
+  </div>
+
+  <!-- แท็บแบบทดสอบ -->
+  <div id="tabQuiz">
+    <div class="prod">
+      <select id="prodSel" aria-label="เลือกโปรดัก"></select>
+      <button id="pAdd" class="pri">+ เพิ่มโปรดัก</button>
+      <button id="pRen">เปลี่ยนชื่อ</button>
+      <button id="pTog"></button>
+      <button id="pDel" class="del">ลบโปรดัก</button>
+    </div>
+    <div class="bar">
+      <strong id="qTitle"></strong>
+      <button id="addBtn" class="pri">เพิ่มคำถาม</button>
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <!-- แท็บพนักงาน -->
+  <div id="tabEmp" class="hide">
+    <div class="tools">
+      <input id="empSearch" type="search" placeholder="ค้นหาชื่อหรือสังกัด">
+      <label class="selall"><input type="checkbox" id="selAll"> เลือกทั้งหมด</label>
+      <button id="empDelSel" class="delfill" disabled>ลบที่เลือก</button>
+    </div>
+    <div class="cnt" id="empCount"></div>
+    <div id="empList"></div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+// ใส่ค่าจาก Supabase > Project Settings > API
+const SUPABASE_URL = 'https://wzwyotzzxycqfwercakh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6d3lvdHp6eHljcWZ3ZXJjYWtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwNTg3MTMsImV4cCI6MjA3MjYzNDcxM30.lgiAf9oBUqsaWGb3u_80wuoKAODQHE_lIBxpGumhrno';
+const BUCKET = 'vq-audio';
+// รายชื่อพนักงานดึงจากคนที่เคยส่งคำตอบในตาราง vq_answers (จัดกลุ่มตามชื่อ + สังกัด)
+const ANSWER_TABLE = 'vq_answers';
+const ANSWER_BUCKET = 'vq-answers';
+
+let db;
+try {
+  db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch (e) {
+  document.body.insertAdjacentHTML('afterbegin',
+    '<div style="background:#d64545;color:#fff;padding:14px;text-align:center">เชื่อมต่อ Supabase ไม่ได้: ตรวจสอบว่าใส่ SUPABASE_URL และ SUPABASE_KEY ถูกต้อง และเน็ตโหลดสคริปต์ได้ ('
+    + e.message + ')</div>');
+  throw e;
+}
+const $ = s => document.querySelector(s);
+let team = 'tele', products = [], productId = null, rows = [], recorder = null;
+let emps = [], picked = new Set();
+
+function toast(msg, err) {
+  const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : '';
+  t.style.display = 'block'; clearTimeout(toast.h);
+  toast.h = setTimeout(() => t.style.display = 'none', 3200);
+}
+const pubUrl = p => db.storage.from(BUCKET).getPublicUrl(p).data.publicUrl;
+const curProduct = () => products.find(p => p.id === productId);
+
+// ---------- auth ----------
+function showApp(on) {
+  $('#loginView').classList.toggle('hide', on);
+  $('#appView').classList.toggle('hide', !on);
+  if (on) loadAll();
+}
+$('#loginBtn').onclick = async () => {
+  const { error } = await db.auth.signInWithPassword({ email: $('#em').value.trim(), password: $('#pw').value });
+  if (error) return toast('เข้าสู่ระบบไม่สำเร็จ: ตรวจสอบอีเมลและรหัสผ่าน', true);
+  showApp(true);
+};
+$('#outBtn').onclick = async () => { await db.auth.signOut(); showApp(false); };
+db.auth.getSession().then(({ data }) => showApp(!!data.session)).catch(() => showApp(false));
+
+// ---------- tabs / team ----------
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  $('#tabQuiz').classList.toggle('hide', b.dataset.tab !== 'quiz');
+  $('#tabEmp').classList.toggle('hide', b.dataset.tab !== 'emp');
+});
+$('#teamSel').onchange = e => { team = e.target.value; productId = null; loadAll(); };
+function loadAll() { loadProducts(); loadEmps(); }
+
+// ---------- products ----------
+async function loadProducts(keepId) {
+  const { data, error } = await db.from('vq_products').select('*').eq('team', team).order('position');
+  if (error) return toast('โหลดโปรดักไม่สำเร็จ: ' + error.message, true);
+  products = data;
+  productId = products.some(p => p.id === (keepId || productId)) ? (keepId || productId) : (products[0] && products[0].id) || null;
+  drawProducts(); loadQuestions();
+}
+function drawProducts() {
+  const sel = $('#prodSel'); sel.innerHTML = '';
+  if (!products.length) sel.innerHTML = '<option value="">ยังไม่มีโปรดัก</option>';
+  products.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = p.name + (p.is_active ? '' : ' (ปิดอยู่)');
+    if (p.id === productId) o.selected = true;
+    sel.appendChild(o);
+  });
+  const has = !!productId, p = curProduct();
+  ['#pRen', '#pTog', '#pDel', '#addBtn'].forEach(s => $(s).disabled = !has);
+  $('#pTog').textContent = p && !p.is_active ? 'เปิดใช้โปรดักนี้' : 'ปิดโปรดักนี้';
+  $('#qTitle').textContent = p ? 'คำถามของ: ' + p.name : '';
+}
+$('#prodSel').onchange = e => { productId = e.target.value; drawProducts(); loadQuestions(); };
+
+$('#pAdd').onclick = async () => {
+  const name = (prompt('ชื่อโปรดักใหม่ เช่น ประกันอุบัติเหตุ PA') || '').trim();
+  if (!name) return;
+  const pos = products.reduce((m, r) => Math.max(m, r.position), 0) + 1;
+  const { data, error } = await db.from('vq_products').insert({ team, name, position: pos, is_active: true }).select().single();
+  if (error) return toast('เพิ่มโปรดักไม่สำเร็จ: ' + error.message, true);
+  toast('เพิ่มโปรดักแล้ว'); loadProducts(data.id);
+};
+$('#pRen').onclick = async () => {
+  const p = curProduct(); if (!p) return;
+  const name = (prompt('ชื่อโปรดัก', p.name) || '').trim();
+  if (!name || name === p.name) return;
+  const { error } = await db.from('vq_products').update({ name }).eq('id', p.id);
+  if (error) return toast('เปลี่ยนชื่อไม่สำเร็จ: ' + error.message, true);
+  loadProducts(p.id);
+};
+$('#pTog').onclick = async () => {
+  const p = curProduct(); if (!p) return;
+  const { error } = await db.from('vq_products').update({ is_active: !p.is_active }).eq('id', p.id);
+  if (error) return toast('เปลี่ยนสถานะไม่สำเร็จ: ' + error.message, true);
+  loadProducts(p.id);
+};
+$('#pDel').onclick = async () => {
+  const p = curProduct(); if (!p) return;
+  const n = rows.filter(r => r.id).length;
+  if (!confirm(`ลบโปรดัก "${p.name}" พร้อมคำถามและไฟล์เสียงทั้งหมด ${n} ข้อ?\nลบแล้วกู้คืนไม่ได้ (ถ้าแค่ไม่ใช้ชั่วคราว ใช้ "ปิดโปรดักนี้" แทน)`)) return;
+  const paths = rows.map(r => r.audio_path).filter(Boolean);
+  const { error } = await db.from('vq_products').delete().eq('id', p.id);
+  if (error) return toast('ลบโปรดักไม่สำเร็จ: ' + error.message, true);
+  if (paths.length) await db.storage.from(BUCKET).remove(paths);
+  productId = null; toast('ลบโปรดักแล้ว'); loadProducts();
+};
+
+// ---------- questions ----------
+async function loadQuestions() {
+  if (!productId) { rows = []; return renderAll(); }
+  const { data, error } = await db.from('vq_questions').select('*').eq('product_id', productId).order('position');
+  if (error) return toast('โหลดคำถามไม่สำเร็จ: ' + error.message, true);
+  rows = data; renderAll();
+}
+function renderAll() {
+  const list = $('#list'); list.innerHTML = '';
+  if (!productId) list.innerHTML = '<div class="empty">ยังไม่มีโปรดักในทีมนี้ กด "+ เพิ่มโปรดัก" เพื่อเริ่ม</div>';
+  else if (!rows.length) list.innerHTML = '<div class="empty">ยังไม่มีคำถามในโปรดักนี้ กด "เพิ่มคำถาม" เพื่อเริ่ม</div>';
+  rows.forEach(q => list.appendChild(card(q)));
+}
+$('#addBtn').onclick = () => {
+  if (!productId) return;
+  const pos = rows.reduce((m, r) => Math.max(m, r.position), 0) + 1;
+  const q = { id: null, team, product_id: productId, position: pos, question_text: '', audio_path: null, is_active: true };
+  rows.push(q);
+  if (rows.length === 1) $('#list').innerHTML = '';
+  const el = card(q); $('#list').appendChild(el);
+  el.querySelector('textarea').focus();
+};
+
+// ---------- card ----------
+function card(q) {
+  const el = document.createElement('div');
+  el.className = 'q' + (q.is_active ? '' : ' off');
+  el.innerHTML = `
+    <div class="qh"><span>ข้อ ${q.position}${q.id ? '' : ' (ใหม่ ยังไม่บันทึก)'}</span>
+      <span class="mv"><button data-a="up" aria-label="เลื่อนขึ้น">↑</button> <button data-a="down" aria-label="เลื่อนลง">↓</button></span></div>
+    <textarea placeholder="พิมพ์ข้อความคำถาม"></textarea>
+    <div class="aud"></div>
+    <div class="row">
+      <button data-a="rec">อัดเสียง</button>
+      <button data-a="file">อัปโหลดไฟล์เสียง</button>
+      <input type="file" accept="audio/*" class="hide">
+      <label class="chk"><input type="checkbox" class="act"> ใช้งานข้อนี้</label>
+      <span class="sp"></span>
+      <button data-a="del" class="del">ลบ</button>
+      <button data-a="save" class="pri">บันทึก</button>
+    </div>`;
+  el.querySelector('textarea').value = q.question_text;
+  el.querySelector('.act').checked = q.is_active;
+  drawAudio(el, q);
+
+  el.onclick = e => {
+    const a = e.target.dataset.a; if (!a) return;
+    if (a === 'rec') toggleRec(el, q, e.target);
+    if (a === 'file') el.querySelector('input[type=file]').click();
+    if (a === 'save') save(el, q);
+    if (a === 'del') remove(el, q);
+    if (a === 'up') move(q, -1);
+    if (a === 'down') move(q, 1);
+  };
+  el.querySelector('input[type=file]').onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    q.blob = f; drawAudio(el, q);
+  };
+  return el;
+}
+function drawAudio(el, q) {
+  const box = el.querySelector('.aud');
+  const src = q.blob ? URL.createObjectURL(q.blob) : (q.audio_path ? pubUrl(q.audio_path) : null);
+  box.innerHTML = src
+    ? `<audio controls src="${src}"></audio>${q.blob ? '<div class="none">เสียงใหม่ ยังไม่บันทึก</div>' : ''}`
+    : '<div class="none">ยังไม่มีไฟล์เสียง</div>';
+}
+
+// ---------- recording ----------
+async function toggleRec(el, q, btn) {
+  if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const chunks = []; recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = e => chunks.push(e.data);
+    recorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      q.blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+      btn.textContent = 'อัดเสียง'; btn.classList.remove('rec'); drawAudio(el, q);
+    };
+    recorder.start(); btn.textContent = 'หยุดอัด'; btn.classList.add('rec');
+  } catch (err) {
+    toast('เปิดไมโครโฟนไม่ได้: อนุญาตการใช้ไมค์และเปิดผ่าน HTTPS', true);
+  }
+}
+
+// ---------- save / delete / move ----------
+async function save(el, q) {
+  const text = el.querySelector('textarea').value.trim();
+  if (!text) return toast('พิมพ์ข้อความคำถามก่อนบันทึก', true);
+  if (q.blob && q.id && text === q.question_text &&
+      !confirm('คุณเปลี่ยนเสียงแต่ข้อความยังเหมือนเดิม ข้อความตรงกับเสียงใหม่แล้วใช่ไหม?')) return;
+
+  let path = q.audio_path;
+  if (q.blob) {
+    const t = q.blob.type || '';
+    const ext = t.includes('mp4') ? 'm4a' : t.includes('webm') ? 'webm' : t.includes('ogg') ? 'ogg'
+      : (q.blob.name ? q.blob.name.split('.').pop() : 'mp3');
+    const np = `${team}/${q.product_id}/${Date.now()}-q${q.position}.${ext}`;
+    const up = await db.storage.from(BUCKET).upload(np, q.blob, { contentType: t || undefined });
+    if (up.error) return toast('อัปโหลดเสียงไม่สำเร็จ: ' + up.error.message, true);
+    if (path) await db.storage.from(BUCKET).remove([path]);
+    path = np;
+  }
+  const payload = { team, product_id: q.product_id, position: q.position, question_text: text, audio_path: path,
+                    is_active: el.querySelector('.act').checked };
+  const res = q.id
+    ? await db.from('vq_questions').update(payload).eq('id', q.id).select().single()
+    : await db.from('vq_questions').insert(payload).select().single();
+  if (res.error) return toast('บันทึกไม่สำเร็จ: ' + res.error.message, true);
+
+  rows[rows.indexOf(q)] = res.data;
+  el.replaceWith(card(res.data));
+  toast('บันทึกแล้ว');
+}
+async function remove(el, q) {
+  if (!confirm('ลบคำถามข้อนี้?')) return;
+  if (q.id) {
+    const { error } = await db.from('vq_questions').delete().eq('id', q.id);
+    if (error) return toast('ลบไม่สำเร็จ: ' + error.message, true);
+    if (q.audio_path) await db.storage.from(BUCKET).remove([q.audio_path]);
+  }
+  rows.splice(rows.indexOf(q), 1); el.remove(); toast('ลบแล้ว');
+}
+async function move(q, dir) {
+  const i = rows.indexOf(q), o = rows[i + dir];
+  if (!o) return;
+  if (!q.id || !o.id) return toast('บันทึกคำถามใหม่ก่อนจึงจะเลื่อนลำดับได้', true);
+  const [a, b] = [q.position, o.position];
+  const steps = [[q.id, -1], [o.id, a], [q.id, b]];
+  for (const [id, position] of steps) {
+    const { error } = await db.from('vq_questions').update({ position }).eq('id', id);
+    if (error) return toast('เลื่อนลำดับไม่สำเร็จ: ' + error.message, true);
+  }
+  loadQuestions();
+}
+
+// ---------- employees ----------
+async function fetchAnswers() {
+  const out = [], size = 1000;
+  for (let from = 0; ; from += size) {
+    const { data, error } = await db.from(ANSWER_TABLE)
+      .select('employee_name,employee_group,session_id,position,answer_audio_path')
+      .eq('team', team).order('employee_name').order('session_id').order('position')
+      .range(from, from + size - 1);
+    if (error) throw error;
+    out.push(...data);
+    if (data.length < size) break;
+  }
+  return out;
+}
+async function loadEmps() {
+  try {
+    const m = new Map();
+    (await fetchAnswers()).forEach(r => {
+      const key = JSON.stringify([r.employee_name, r.employee_group]);
+      let e = m.get(key);
+      if (!e) m.set(key, e = { id: key, name: r.employee_name || '(ไม่มีชื่อ)', group: r.employee_group || '',
+        rawName: r.employee_name, rawGroup: r.employee_group, sessions: new Set(), answers: 0, paths: [] });
+      e.sessions.add(r.session_id); e.answers++;
+      if (r.answer_audio_path) e.paths.push(r.answer_audio_path);
+    });
+    emps = [...m.values()];
+  } catch (error) {
+    emps = []; picked.clear(); renderEmps();
+    return toast('โหลดรายชื่อพนักงานไม่สำเร็จ: ' + error.message, true);
+  }
+  picked.clear(); renderEmps();
+}
+function visibleEmps() {
+  const k = $('#empSearch').value.trim().toLowerCase();
+  return emps.filter(e => (e.name + ' ' + e.group).toLowerCase().includes(k));
+}
+function renderEmps() {
+  const list = visibleEmps(), box = $('#empList'); box.innerHTML = '';
+  if (!list.length) box.innerHTML = '<div class="empty">ไม่พบรายชื่อพนักงาน</div>';
+  list.forEach(e => {
+    const r = document.createElement('div'); r.className = 'emp';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = picked.has(e.id);
+    cb.setAttribute('aria-label', 'เลือก ' + e.name);
+    cb.onchange = () => { cb.checked ? picked.add(e.id) : picked.delete(e.id); syncEmpUi(); };
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = e.name;
+    const cd = document.createElement('span'); cd.className = 'cd';
+    cd.textContent = `${e.group ? e.group + ' · ' : ''}ทำ ${e.sessions.size} ครั้ง · ${e.answers} คำตอบ`;
+    const bt = document.createElement('button'); bt.className = 'del'; bt.textContent = 'ลบ';
+    bt.onclick = () => deleteEmps([e.id], e.name);
+    r.append(cb, nm, cd, bt); box.appendChild(r);
+  });
+  syncEmpUi();
+}
+function syncEmpUi() {
+  const list = visibleEmps();
+  $('#empCount').textContent = `ทั้งหมด ${emps.length} คน${list.length !== emps.length ? ` (แสดง ${list.length})` : ''} · เลือกแล้ว ${picked.size}`;
+  $('#empDelSel').disabled = !picked.size;
+  $('#empDelSel').textContent = picked.size ? `ลบที่เลือก (${picked.size})` : 'ลบที่เลือก';
+  $('#selAll').checked = list.length > 0 && list.every(e => picked.has(e.id));
+}
+$('#empSearch').oninput = renderEmps;
+$('#selAll').onchange = e => {
+  visibleEmps().forEach(x => e.target.checked ? picked.add(x.id) : picked.delete(x.id));
+  renderEmps();
+};
+$('#empDelSel').onclick = () => deleteEmps([...picked], null);
+
+async function deleteEmps(ids, name) {
+  const targets = emps.filter(e => ids.includes(e.id));
+  const msg = name
+    ? `ลบ "${name}" พร้อมเสียงคำตอบทั้งหมดที่เคยส่ง?`
+    : `ลบพนักงานที่เลือก ${targets.length} คน พร้อมเสียงคำตอบทั้งหมดที่เคยส่ง?`;
+  if (!confirm(msg + '\nลบแล้วกู้คืนไม่ได้')) return;
+  let done = 0, leftover = 0;
+  for (const e of targets) {
+    let q = db.from(ANSWER_TABLE).delete().eq('team', team);
+    q = e.rawName == null ? q.is('employee_name', null) : q.eq('employee_name', e.rawName);
+    q = e.rawGroup == null ? q.is('employee_group', null) : q.eq('employee_group', e.rawGroup);
+    const { data, error } = await q.select('session_id');
+    if (error) { toast(`ลบ ${e.name} ไม่สำเร็จ: ${error.message}`, true); break; }
+    if (!data.length) { toast('ลบไม่ได้: ยังไม่มีสิทธิ์ลบ ให้รัน setup-products.sql ก่อน', true); break; }
+    done++;
+    for (let i = 0; i < e.paths.length; i += 100) {
+      const part = e.paths.slice(i, i + 100);
+      const r = await db.storage.from(ANSWER_BUCKET).remove(part);
+      if (r.error || (r.data || []).length < part.length) leftover++;
+    }
+  }
+  if (done) toast(`ลบพนักงาน ${done} คนแล้ว` + (leftover ? ' (ไฟล์เสียงบางส่วนลบไม่หมด)' : ''), !!leftover);
+  loadEmps();
+}
+</script>
+</body>
+</html>
